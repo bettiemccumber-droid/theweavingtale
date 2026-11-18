@@ -2,6 +2,7 @@
 const articles = [
     {
         id: 1,
+        slug: "top-10-tech-gadgets-for-2026",
         title: "Top 10 Tech Gadgets for 2026",
         category: "Technology",
         date: "2026-04-05",
@@ -30,6 +31,7 @@ const articles = [
     },
     {
         id: 2,
+        slug: "modern-home-decor-trends",
         title: "Modern Home Decor Trends",
         category: "Home & Living",
         date: "2026-03-28",
@@ -55,6 +57,7 @@ const articles = [
     },
     {
         id: 3,
+        slug: "spring-fashion-essentials",
         title: "Spring Fashion Essentials",
         category: "Fashion",
         date: "2026-03-15",
@@ -83,6 +86,7 @@ const articles = [
     },
     {
         id: 4,
+        slug: "best-fitness-trackers-reviewed",
         title: "Best Fitness Trackers Reviewed",
         category: "Fitness",
         date: "2026-03-01",
@@ -108,6 +112,7 @@ const articles = [
     },
     {
         id: 5,
+        slug: "skincare-routine-for-glowing-skin",
         title: "Skincare Routine for Glowing Skin",
         category: "Beauty",
         date: "2026-02-20",
@@ -135,6 +140,7 @@ const articles = [
     },
     {
         id: 6,
+        slug: "top-travel-destinations-2026",
         title: "Top Travel Destinations 2026",
         category: "Travel",
         date: "2026-02-15",
@@ -163,6 +169,7 @@ const articles = [
     },
     {
         id: 7,
+        slug: "smart-home-devices-worth-buying",
         title: "Smart Home Devices Worth Buying",
         category: "Technology",
         date: "2026-02-10",
@@ -194,6 +201,7 @@ const articles = [
     },
     {
         id: 8,
+        slug: "minimalist-living-less-is-more",
         title: "Minimalist Living: Less is More",
         category: "Home & Living",
         date: "2026-02-05",
@@ -222,6 +230,7 @@ const articles = [
     },
     {
         id: 9,
+        slug: "best-coffee-makers-for-home",
         title: "Best Coffee Makers for Home",
         category: "Home & Living",
         date: "2026-02-01",
@@ -255,6 +264,7 @@ const articles = [
     },
     {
         id: 10,
+        slug: "sustainable-fashion-brands-to-know",
         title: "Sustainable Fashion Brands to Know",
         category: "Fashion",
         date: "2026-01-25",
@@ -365,3 +375,127 @@ const categories = [
     { name: "Fitness", count: 1, slug: "fitness" },
     { name: "Travel", count: 1, slug: "travel" }
 ];
+
+/**
+ * Detail URL for an article. Prefer slug when present.
+ * @param {{ id?: number|string, slug?: string }} article
+ * @returns {string}
+ */
+function articleHref(article) {
+  if (article && typeof article.slug === "string" && article.slug) {
+    return "article.html?slug=" + encodeURIComponent(article.slug);
+  }
+  return "article.html?id=" + encodeURIComponent(String(article && article.id != null ? article.id : ""));
+}
+
+/**
+ * Fields used by the list UI for API-published posts.
+ * Maps bodyHtml onto content when the list payload includes it.
+ * @param {Object} post
+ * @returns {Object}
+ */
+function publishedListFields(post) {
+  return {
+    id: post.id,
+    slug: post.slug,
+    title: post.title,
+    category: post.category,
+    date: post.date,
+    image: post.image || "",
+    excerpt: post.excerpt || "",
+    content: typeof post.content === "string" ? post.content : ""
+  };
+}
+
+/**
+ * Merge API posts into articles. Same slug keeps API list fields
+ * and any static content already on the article.
+ * @param {Array<Object>} remotePosts
+ */
+function mergePublishedPosts(remotePosts) {
+  if (!Array.isArray(remotePosts)) return;
+
+  /** @type {Map<string, Object>} */
+  const incoming = new Map();
+  remotePosts.forEach((post) => {
+    if (!post || typeof post.slug !== "string" || !post.slug) return;
+    incoming.set(post.slug, publishedListFields(post));
+  });
+
+  for (let index = 0; index < articles.length; index += 1) {
+    const current = articles[index];
+    const remote = current.slug ? incoming.get(current.slug) : null;
+    if (!remote) continue;
+    const staticContent = current.content;
+    articles[index] = { ...current, ...remote };
+    if (staticContent) articles[index].content = staticContent;
+    incoming.delete(remote.slug);
+  }
+
+  incoming.forEach((post) => {
+    articles.push(post);
+  });
+
+  refreshCategoryCounts();
+}
+
+/**
+ * Rebuild category sidebar counts from the merged articles list.
+ */
+function refreshCategoryCounts() {
+  if (!Array.isArray(categories)) return;
+  categories.forEach((cat) => {
+    cat.count = articles.filter((article) => {
+      if (!article || !article.category) return false;
+      return (
+        article.category.toLowerCase() === cat.name.toLowerCase()
+        || article.category.toLowerCase() === cat.slug.toLowerCase()
+      );
+    }).length;
+  });
+}
+
+/** @type {Promise<void>|null} */
+let publishedPostsPromise = null;
+
+/**
+ * Fetch GET /api/posts and merge. A failed request leaves the static list in place.
+ * @returns {Promise<void>}
+ */
+function loadPublishedPosts() {
+  if (!publishedPostsPromise) {
+    publishedPostsPromise = fetchAndMergePublishedPosts();
+  }
+  return publishedPostsPromise;
+}
+
+/**
+ * @returns {Promise<void>}
+ */
+async function fetchAndMergePublishedPosts() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 4000);
+  try {
+    const response = await fetch("/api/posts", { cache: "no-store", signal: controller.signal });
+    if (!response.ok) return;
+    const data = await response.json();
+    mergePublishedPosts(Array.isArray(data) ? data : data.posts);
+  } catch (error) {
+    console.error("Published posts unavailable, showing static articles.", error);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Load body HTML for one API-published article.
+ * @param {string} slug
+ * @returns {Promise<string|null>}
+ */
+async function loadPublishedBody(slug) {
+  const response = await fetch("/api/posts/" + encodeURIComponent(slug), { cache: "no-store" });
+  if (!response.ok) return null;
+  const data = await response.json();
+  if (typeof data === "string") return data;
+  return typeof data?.bodyHtml === "string" ? data.bodyHtml : null;
+}

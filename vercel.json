@@ -1,0 +1,9 @@
+{
+  "cleanUrls": false,
+  "trailingSlash": false,
+  "functions": {
+    "api/posts/index.js": {
+      "includeFiles": "js/data.js"
+    }
+  }
+}

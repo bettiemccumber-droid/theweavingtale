@@ -2,6 +2,42 @@
 
 A modern, responsive blog website featuring product reviews, lifestyle articles, and platform recommendations.
 
+## zjads publish API
+
+Static articles live in `js/data.js` (`articles`). Detail URLs are `article.html?id=...` (static) or `article.html?slug=...` (API).
+
+zjads publishes through the API. New posts are stored in a private Vercel Blob file `published-posts.json`. Lists and detail pages merge them in the browser — no redeploy per article, and `js/data.js` is never rewritten at runtime.
+
+### Vercel setup
+
+- `PUBLISH_TOKEN` — required on `POST /api/posts` as `Authorization: Bearer <PUBLISH_TOKEN>`
+- Connect a **Private** Blob store to the project (injects `BLOB_READ_WRITE_TOKEN` / `BLOB_STORE_ID`)
+
+### Call
+
+```
+POST https://www.theweavingtale.top/api/posts
+Content-Type: application/json
+Authorization: Bearer <PUBLISH_TOKEN>
+```
+
+Body fields: `title`, `excerpt`, `category`, `image`, `images`, `bodyHtml`, `merchantName`, `merchantUrl`, `mid`, `trackUrl`, `author`. `title` and `bodyHtml` are required.
+
+Success `200`:
+
+```json
+{
+  "slug": "generated-kebab-slug",
+  "url": "https://www.theweavingtale.top/article.html?slug=generated-kebab-slug"
+}
+```
+
+Public reads (no token):
+
+- `GET /api/posts` — published list
+- `GET /api/posts/<slug>` — `{ "bodyHtml": "..." }`
+- `DELETE /api/posts/<slug>` — requires token; removes one API post
+
 ## Features
 
 ### Core Functionality
