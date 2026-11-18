@@ -159,7 +159,7 @@ function addArticleStructuredData(article) {
             "name": "Theweavingtale",
             "logo": {
                 "@type": "ImageObject",
-                "url": "https://theweavingtale.com/logo.png"
+                "url": "https://www.theweavingtale.top/logo.png"
             }
         },
         "mainEntityOfPage": {
