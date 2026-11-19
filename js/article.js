@@ -24,28 +24,35 @@ async function initArticlePage() {
 
     // Static body in js/data.js wins. API body is only used when there is no static HTML.
     if (slug && !(article && article.content)) {
-        let bodyHtml = '';
+        let remote = null;
         try {
-            bodyHtml = (await loadPublishedBody(slug)) || '';
+            remote = await loadPublishedArticle(slug);
         } catch (error) {
             console.error('Published article body unavailable.', error);
         }
 
-        if (bodyHtml) {
+        if (remote && remote.bodyHtml) {
             if (!article) {
                 article = {
                     id: Date.now(),
                     slug,
-                    title: slug,
-                    category: 'Technology',
-                    date: '',
-                    image: '',
-                    excerpt: '',
-                    content: bodyHtml
+                    title: remote.title || slug,
+                    category: remote.category || 'Technology',
+                    date: remote.date || '',
+                    image: remote.image || '',
+                    excerpt: remote.excerpt || '',
+                    content: remote.bodyHtml,
+                    images: Array.isArray(remote.images) ? remote.images : []
                 };
                 articles.push(article);
             } else {
-                article.content = bodyHtml;
+                article.content = remote.bodyHtml;
+                if (!article.image && remote.image) article.image = remote.image;
+                if (!article.title && remote.title) article.title = remote.title;
+                if (!article.excerpt && remote.excerpt) article.excerpt = remote.excerpt;
+                if (Array.isArray(remote.images) && remote.images.length) {
+                    article.images = remote.images;
+                }
             }
         }
     }

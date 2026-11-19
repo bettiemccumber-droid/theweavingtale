@@ -1,10 +1,12 @@
 import { applyApiHeaders, isPublishAuthorized, sendJson } from "../../lib/http.js";
-import { getPublishedBody, removePublishedPost, StorageError } from "../../lib/posts-store.js";
+import { ensureImagesInBody } from "../../lib/post-record.js";
+import { getPublishedPost, removePublishedPost, StorageError } from "../../lib/posts-store.js";
 
 /**
  * GET https://www.theweavingtale.top/api/posts/:slug
- * Returns { bodyHtml } for one API-published article. No PUBLISH_TOKEN.
- * Static articles stay in js/data.js and are not served here.
+ * Returns { bodyHtml, images, image, title, ... } for one API-published article.
+ * bodyHtml includes any gallery images that were missing from the original HTML.
+ * No PUBLISH_TOKEN. Static articles stay in js/data.js and are not served here.
  *
  * DELETE https://www.theweavingtale.top/api/posts/:slug
  * Authorization: Bearer <PUBLISH_TOKEN>
@@ -55,12 +57,27 @@ export default async function handler(req, res) {
   }
 
   try {
-    const bodyHtml = await getPublishedBody(slug);
-    if (bodyHtml == null) {
+    const post = await getPublishedPost(slug);
+    if (!post) {
       sendJson(res, 404, { error: "Article not found" });
       return;
     }
-    sendJson(res, 200, { bodyHtml });
+    const images = Array.isArray(post.images)
+      ? post.images.filter((item) => typeof item === "string")
+      : [];
+    const rawBody = typeof post.bodyHtml === "string" ? post.bodyHtml : "";
+    const bodyHtml = ensureImagesInBody(rawBody, images);
+    sendJson(res, 200, {
+      bodyHtml,
+      images,
+      image: typeof post.image === "string" ? post.image : "",
+      title: typeof post.title === "string" ? post.title : "",
+      excerpt: typeof post.excerpt === "string" ? post.excerpt : "",
+      category: typeof post.category === "string" ? post.category : "",
+      date: typeof post.date === "string" ? post.date : "",
+      author: typeof post.author === "string" ? post.author : "",
+      slug: typeof post.slug === "string" ? post.slug : slug
+    });
   } catch (error) {
     console.error("Could not read article body", error);
     if (error instanceof StorageError) {

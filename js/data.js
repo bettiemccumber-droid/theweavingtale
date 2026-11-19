@@ -488,14 +488,25 @@ async function fetchAndMergePublishedPosts() {
 }
 
 /**
+ * Load body HTML (+ optional metadata) for one API-published article.
+ * @param {string} slug
+ * @returns {Promise<{ bodyHtml: string, images?: string[], image?: string, title?: string, excerpt?: string, category?: string, date?: string, author?: string }|null>}
+ */
+async function loadPublishedArticle(slug) {
+  const response = await fetch("/api/posts/" + encodeURIComponent(slug), { cache: "no-store" });
+  if (!response.ok) return null;
+  const data = await response.json();
+  if (typeof data === "string") return { bodyHtml: data };
+  if (!data || typeof data.bodyHtml !== "string") return null;
+  return data;
+}
+
+/**
  * Load body HTML for one API-published article.
  * @param {string} slug
  * @returns {Promise<string|null>}
  */
 async function loadPublishedBody(slug) {
-  const response = await fetch("/api/posts/" + encodeURIComponent(slug), { cache: "no-store" });
-  if (!response.ok) return null;
-  const data = await response.json();
-  if (typeof data === "string") return data;
-  return typeof data?.bodyHtml === "string" ? data.bodyHtml : null;
+  const data = await loadPublishedArticle(slug);
+  return data ? data.bodyHtml : null;
 }
